@@ -1,10 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
 #include <Ticker.h>//Ticker Library
 #include <Wire.h>
+#include "SparkFunHTU21D.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Fonts/FreeSans9pt7b.h>
@@ -27,11 +25,8 @@ Adafruit_SSD1306 display(OLED_RESET);
 // light pin
 #define light D0
 
-// DHT sensor config.
-#define DHTPIN D3         // Digital pin connected to the DHT sensor 
-#define DHTTYPE DHT22     // DHT 22 (AM2302)
-DHT_Unified dht(DHTPIN, DHTTYPE);
-uint32_t delayMS = 0;
+// HTU21D sensor config.
+HTU21D HTU;
 
 // 設定無線基地台SSID跟密碼
 const char* ssid     = "******";
@@ -97,14 +92,11 @@ void setup() {
   
   pinMode(light, OUTPUT);
   digitalWrite(light, HIGH);  // set HIGH to turn off Light
-  pinMode(IPbutton, INPUT_PULLUP);
+  pinMode(IPbutton, INPUT);
   
   Serial.begin(115200);
   
-  dht.begin();
-  sensor_t sensor;
-  dht.temperature().getSensor(&sensor);   // Set delay between sensor readings based on sensor details.
-  delayMS = sensor.min_delay / 1000;      // Delay between measurements.
+  HTU.begin();
   
   delay(700);
   display.clearDisplay();
@@ -171,24 +163,9 @@ void loop() {
   
   if (!client.connected())
     reconnect();
-  /*
-  if(!client.loop())
-    client.connect("ESP8266Client");
-  */
-  float temp, humi;
-  sensors_event_t event;
-  
-  dht.temperature().getEvent(&event); // Get temperature event and print its value.
-  if (isnan(event.temperature))
-    Serial.println(F("Error reading temperature!"));
-  else
-    temp = event.temperature;
-
-  dht.humidity().getEvent(&event);  // Get humidity event and print its value.
-  if (isnan(event.relative_humidity))
-    Serial.println(F("Error reading humidity!"));
-  else
-    humi = event.relative_humidity;
+    
+  float temp = HTU.readTemperature();
+  float humi = HTU.readHumidity();
 
   // dtostrf 將 float 數字改成文字
   static char temperatureTemp[7];
@@ -199,19 +176,19 @@ void loop() {
   // Publishes Temperature and Humidity values
   client.publish("room/temperature", temperatureTemp);
   client.publish("room/humidity", humidityTemp);
-  Serial.print("Humidity: ");
-  Serial.print(humi);
-  Serial.print(" %\t Temperature: ");
+  Serial.print("Temperature: ");
   Serial.print(temp);
-  Serial.println(" *C ");
+  Serial.print(" *C\t Humidity: ");
+  Serial.print(humi);
+  Serial.println(" % ");
   // Delay between measurements.
-  delay(delayMS);
+  delay(2000);
   display.clearDisplay();
   
   String line1;
   String line2;
   display.setFont();  // set font back to default
-  if( digitalRead(IPbutton) ){
+  if( !digitalRead(IPbutton) ){
     if( changer%2 ){
       line1 = "Humidity";
       line2 = humi;
