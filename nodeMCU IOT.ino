@@ -3,9 +3,11 @@
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include  <Ticker.h>//Ticker Library
 
 // light pin
 #define light D0
+
 // DHT sensor config.
 #define DHTPIN D1         // Digital pin connected to the DHT sensor 
 #define DHTTYPE DHT22     // DHT 22 (AM2302)
@@ -21,8 +23,12 @@ const char* mqtt_server = "192.168.50.207";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+// process incoming subscribed messages and maintain its connection to the server.
+Ticker subPoll;
+
 void callback(String topic, byte* message, unsigned int length);  // 當設備發訊息給一個標題(topic)時，這段函式會被執行
 void reconnect();                                                 // ESP8266 重新連接到 MQTT Broker 
+void subPolling();                                                // process incoming subscribed messages and maintain its connection to the server.
 
 void setup() {
   pinMode(light, OUTPUT);
@@ -50,26 +56,26 @@ void setup() {
 
   client.setServer(mqtt_server, 1883);    // 設定 mqtt server 及連接 port
   client.setCallback(callback);           // 設定 mqtt broker 並設定 callback function
+  subPoll.attach(0.5, subPolling);      //Initialize subPoll every 0.5s
 }
 
 void loop() {
   if (!client.connected())
     reconnect();
-  
+  /*
   if(!client.loop())
     client.connect("ESP8266Client");
-  
+  */
   float temp, humi;
   sensors_event_t event;
-  // Get temperature event and print its value.
-  dht.temperature().getEvent(&event);
+  
+  dht.temperature().getEvent(&event); // Get temperature event and print its value.
   if (isnan(event.temperature))
     Serial.println(F("Error reading temperature!"));
   else
     temp = event.temperature;
 
-  // Get humidity event and print its value.
-  dht.humidity().getEvent(&event);
+  dht.humidity().getEvent(&event);  // Get humidity event and print its value.
   if (isnan(event.relative_humidity))
     Serial.println(F("Error reading humidity!"));
   else
@@ -138,4 +144,9 @@ void reconnect() {
       delay(5000);
     }
   }
+}
+// process incoming subscribed messages and maintain its connection to the server.
+void subPolling() {
+  if(!client.loop())
+    client.connect("ESP8266Client");
 }
