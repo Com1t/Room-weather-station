@@ -1,5 +1,6 @@
 # Room-weather-station
 A weather station that can send measurement data real-timely through WIFI to a MQTT subscriber.
+(Sensor is consist by nodeMCU and HTU21D)
 # MQTT server
 Build by an raspberry pi
 Flows
